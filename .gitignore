@@ -1,0 +1,23 @@
+# Скомпилированные файлы Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Виртуальные окружения
+venv/
+.venv/
+env/
+
+# Локальные данные и отчеты (генерируются в процессе работы)
+data/db.json
+*.html
+*.log
+
+# Файлы настроек IDE (VS Code, PyCharm)
+.vscode/
+.idea/
+
+# Сборки PyInstaller (если будешь делать .exe)
+build/
+dist/
+*.spec
