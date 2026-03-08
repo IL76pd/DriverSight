@@ -14,5 +14,6 @@ data/db.json
 .idea/
 
 build/
+tmp/
 dist/
 *.spec

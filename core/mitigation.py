@@ -37,16 +37,19 @@ class WDACGenerator:
         success_count = 0
         for threat in self.threats:
             try:
+                # Получаем имя драйвера без расширения (например, 'Capcom' из 'Capcom.sys')
                 driver_base_name = os.path.splitext(threat["name"])[0]
 
                 console.print(
                     f"[*] Попытка изоляции службы драйвера: [bold yellow]{driver_base_name}[/bold yellow]..."
                 )
 
+                # Команда 1: Принудительная остановка службы (если возможно)
                 subprocess.run(
                     ["sc", "stop", driver_base_name], capture_output=True, text=True
                 )
 
+                # Команда 2: Отключение автозагрузки драйвера при следующем старте ОС
                 res = subprocess.run(
                     ["sc", "config", driver_base_name, "start=", "disabled"],
                     capture_output=True,

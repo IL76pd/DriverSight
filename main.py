@@ -71,6 +71,7 @@ def main():
             f"Подробный ИБ-отчет сохранен: [underline]{report_name}[/underline]"
         )
 
+        # ПРОАКТИВНЫЙ БЛОК: Изоляция и генерация политик
         if threats:
             print("\n")
             if Confirm.ask(
