@@ -17,7 +17,6 @@ class DriverCollector:
                 LPDWORD,
             ]
             self.psapi.EnumDeviceDrivers.restype = ctypes.wintypes.BOOL
-
             self.psapi.GetDeviceDriverFileNameA.argtypes = [
                 LPVOID,
                 ctypes.c_char_p,
@@ -25,13 +24,12 @@ class DriverCollector:
             ]
             self.psapi.GetDeviceDriverFileNameA.restype = DWORD
         except Exception as e:
-            print(f"[-] Error initializing WinAPI: {e}")
+            pass
 
     def get_driver_paths(self):
-        """Безопасный сбор путей к драйверам на x64 системах."""
+        """WinAPI сбор активных драйверов из памяти."""
         drivers = (LPVOID * 1024)()
         cb_needed = DWORD()
-
         if not self.psapi.EnumDeviceDrivers(
             drivers, ctypes.sizeof(drivers), ctypes.byref(cb_needed)
         ):
@@ -43,25 +41,20 @@ class DriverCollector:
         for i in range(count):
             if not drivers[i]:
                 continue
-
             char_buf = ctypes.create_string_buffer(512)
-
             if self.psapi.GetDeviceDriverFileNameA(
                 drivers[i], char_buf, ctypes.sizeof(char_buf)
             ):
-                raw_path = char_buf.value.decode("ascii", errors="ignore")
+                path = char_buf.value.decode("ascii", errors="ignore")
 
-                path = raw_path
                 if path.lower().startswith("\\systemroot\\"):
                     path = os.path.join(
                         os.environ.get("SystemRoot", "C:\\Windows"), path[12:]
                     )
-
                 elif path.lower().startswith("\\device\\harddiskvolume"):
                     parts = path.split("\\")
                     if len(parts) > 3:
                         path = "C:\\" + "\\".join(parts[3:])
-
                 elif path.startswith("\\??\\"):
                     path = path[4:]
 
@@ -77,5 +70,13 @@ class DriverCollector:
                     )
                     if os.path.exists(fallback):
                         driver_paths.add(fallback)
+        return list(driver_paths)
 
+    def get_drivers_from_directory(self, directory_path):
+        """Форензик-сбор файлов из указанной папки на диске."""
+        driver_paths = set()
+        for root, _, files in os.walk(directory_path):
+            for file in files:
+                if file.lower().endswith(".sys"):
+                    driver_paths.add(os.path.join(root, file))
         return list(driver_paths)

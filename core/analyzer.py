@@ -8,37 +8,62 @@ class DriverAnalyzer:
 
     def _check_rwx_sections(self, driver_path):
         """
-        Проактивный эвристический анализ (Zero-Day Detection).
-        Проверяет PE-заголовки на наличие секций, доступных одновременно для записи и исполнения (RWX).
+        Эвристический поиск RWX-секций (Zero-Day).
+        Оптимизированная версия с Fast Load.
         """
+        # ОПТИМИЗАЦИЯ 1: Если файл больше 10 МБ, пропускаем эвристику (драйверы обычно маленькие)
         try:
-            pe = pefile.PE(driver_path, fast_load=True)
-            for section in pe.sections:
-                # 0x20000000 = Исполняемая (Execute)
-                # 0x80000000 = Записываемая (Write)
-                if (section.Characteristics & 0x20000000) and (
-                    section.Characteristics & 0x80000000
-                ):
-                    return True
-            return False
-        except Exception:
+            if os.path.getsize(driver_path) > 10 * 1024 * 1024:
+                return False
+        except OSError:
             return False
 
+        pe = None
+        try:
+            # ОПТИМИЗАЦИЯ 2: fast_load=True читает только заголовки, не грузит данные.
+            # Это ускоряет работу в разы на реальной системе.
+            pe = pefile.PE(driver_path, fast_load=True)
+
+            for section in pe.sections:
+                # Безопасное получение атрибутов
+                char = getattr(section, "Characteristics", 0)
+
+                # 0x20000000 = Execute (Исполнение)
+                # 0x80000000 = Write (Запись)
+                if (char & 0x20000000) and (char & 0x80000000):
+                    return True
+
+        except Exception:
+            # ОПТИМИЗАЦИЯ 3: Fallback (План Б)
+            # Если fast_load не смог прочитать файл (например, наши "мутанты" из полигона),
+            # пробуем полную загрузку. Это сработает для test_drivers, но не замедлит систему.
+            try:
+                pe = pefile.PE(driver_path)
+                for section in pe.sections:
+                    char = getattr(section, "Characteristics", 0)
+                    if (char & 0x20000000) and (char & 0x80000000):
+                        return True
+            except Exception:
+                return False
+        finally:
+            # Обязательно закрываем дескриптор
+            if pe:
+                pe.close()
+
+        return False
+
     def evaluate(self, driver_path, file_hash):
-        # 1. Проверка по базе сигнатур LOLDrivers (Сигнатурный анализ)
+        # 1. Сигнатурный анализ (Поиск по базе) - O(1)
         match = self.db.get(file_hash)
 
         if match:
             raw_severity = match.get("severity", 5)
             v_type = match.get("type", "Unknown").lower()
 
-            priority = raw_severity
-            if "write" in v_type:
-                priority = 10
-            elif "read" in v_type:
-                priority = 8
-            elif "leak" in v_type:
-                priority = 6
+            # Уточнение приоритета
+            priority = (
+                10 if "write" in v_type else (8 if "read" in v_type else raw_severity)
+            )
 
             return {
                 "path": driver_path,
@@ -47,21 +72,23 @@ class DriverAnalyzer:
                 "vuln_type": match.get("type", "Vulnerable Driver"),
                 "priority": priority,
                 "exploit_url": match.get("exploit", "https://loldrivers.io/"),
-                "action": "Critical: Немедленная блокировка (WDAC)"
-                if priority >= 9
-                else "High: Обновление вендора",
+                "detection_method": "База сигнатур (LOLDrivers)",
+                "details": f"Известная угроза. Классификация: {v_type.capitalize()}",
+                "action": "Блокировка (WDAC/HVCI)",
             }
 
-        # 2. ПРОАКТИВНАЯ ЗАЩИТА: Если в базе нет, но драйвер подозрительный (Эвристика)
+        # 2. Проактивный анализ (Эвристика) - запускаем только если нет в базе
         if self._check_rwx_sections(driver_path):
             return {
                 "path": driver_path,
                 "hash": file_hash,
                 "name": os.path.basename(driver_path),
-                "vuln_type": "Zero-Day Risk: RWX Memory Section",
+                "vuln_type": "RWX Memory Anomaly",
                 "priority": 7,
-                "exploit_url": "Heuristic Detection (Unsafe Memory Architecture)",
-                "action": "Warning: Ручной анализ ИБ-специалистом",
+                "exploit_url": "#",
+                "detection_method": "Эвристика (Zero-Day)",
+                "details": "Обнаружена аномальная секция памяти (Read-Write-Execute). Высокий риск инъекции кода.",
+                "action": "Изоляция / Ручной анализ",
             }
 
         return None

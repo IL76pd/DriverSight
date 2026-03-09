@@ -13,61 +13,55 @@ class WDACGenerator:
         self.filename = f"WDAC_BlockPolicy_{self.timestamp}.xml"
 
     def generate_policy(self):
-        """Генерирует XML политику WDAC для блокировки уязвимых драйверов по хешу."""
         if not self.threats:
             return None
-
         xml_header = """<?xml version="1.0" encoding="utf-8"?>\n<SiPolicy xmlns="urn:schemas-microsoft-com:sipolicy">\n  <FileRules>\n"""
         xml_rules = ""
         for i, threat in enumerate(self.threats):
-            f_hash = threat["hash"].upper()
-            f_name = threat["name"]
-            xml_rules += f'    <Deny ID="ID_DENY_{i}" FriendlyName="Block {f_name}" Hash="{f_hash}" />\n'
-        xml_footer = "  </FileRules>\n</SiPolicy>"
-
+            xml_rules += f'    <Deny ID="ID_DENY_{i}" FriendlyName="Block {threat["name"]}" Hash="{threat["hash"].upper()}" />\n'
         try:
             with open(self.filename, "w", encoding="utf-8") as f:
-                f.write(xml_header + xml_rules + xml_footer)
+                f.write(xml_header + xml_rules + "  </FileRules>\n</SiPolicy>")
             return self.filename
         except Exception:
             return None
 
     def disable_active_threats(self):
-        """Мгновенная блокировка (изоляция) уязвимого драйвера в системе."""
+        """Динамическая выгрузка и блокировка драйверов (Active Quarantine)."""
         success_count = 0
+        console.print(
+            "[dim]Инициализация механизма Active Quarantine. Попытка динамической выгрузки...[/dim]"
+        )
+
         for threat in self.threats:
+            driver_base = os.path.splitext(os.path.basename(threat["path"]))[0]
             try:
-                # Получаем имя драйвера без расширения (например, 'Capcom' из 'Capcom.sys')
-                driver_base_name = os.path.splitext(threat["name"])[0]
-
-                console.print(
-                    f"[*] Попытка изоляции службы драйвера: [bold yellow]{driver_base_name}[/bold yellow]..."
+                stop_res = subprocess.run(
+                    ["sc", "stop", driver_base], capture_output=True, text=True
                 )
-
-                # Команда 1: Принудительная остановка службы (если возможно)
-                subprocess.run(
-                    ["sc", "stop", driver_base_name], capture_output=True, text=True
-                )
-
-                # Команда 2: Отключение автозагрузки драйвера при следующем старте ОС
-                res = subprocess.run(
-                    ["sc", "config", driver_base_name, "start=", "disabled"],
+                config_res = subprocess.run(
+                    ["sc", "config", driver_base, "start=", "disabled"],
                     capture_output=True,
                     text=True,
                 )
 
-                if res.returncode == 0:
+                if stop_res.returncode == 0 and config_res.returncode == 0:
                     console.print(
-                        f"[bold green]✔ Драйвер {driver_base_name} успешно отключен и изолирован.[/bold green]"
+                        f"[bold green]✔ Угроза {driver_base} мгновенно выгружена из памяти и заблокирована.[/bold green]"
+                    )
+                    success_count += 1
+                elif config_res.returncode == 0:
+                    console.print(
+                        f"[bold yellow]⚠ {driver_base} заблокирован в реестре, но ядро отказалось выгрузить его на лету. Нужна перезагрузка.[/bold yellow]"
                     )
                     success_count += 1
                 else:
                     console.print(
-                        f"[dim]Не удалось изменить конфигурацию службы {driver_base_name} (возможно, требуется перезагрузка).[/dim]"
+                        f"[dim]Служба {driver_base} не найдена. Требуется применение политик WDAC.[/dim]"
                     )
             except Exception as e:
                 console.print(
-                    f"[bold red]Ошибка при блокировке {threat['name']}: {e}[/bold red]"
+                    f"[bold red]Ошибка доступа к {driver_base}: {e}[/bold red]"
                 )
 
         return success_count
