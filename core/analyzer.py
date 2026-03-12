@@ -11,7 +11,6 @@ class DriverAnalyzer:
         Эвристический поиск RWX-секций (Zero-Day).
         Оптимизированная версия с Fast Load.
         """
-        # ОПТИМИЗАЦИЯ 1: Если файл больше 10 МБ, пропускаем эвристику (драйверы обычно маленькие)
         try:
             if os.path.getsize(driver_path) > 10 * 1024 * 1024:
                 return False
@@ -20,12 +19,9 @@ class DriverAnalyzer:
 
         pe = None
         try:
-            # ОПТИМИЗАЦИЯ 2: fast_load=True читает только заголовки, не грузит данные.
-            # Это ускоряет работу в разы на реальной системе.
             pe = pefile.PE(driver_path, fast_load=True)
 
             for section in pe.sections:
-                # Безопасное получение атрибутов
                 char = getattr(section, "Characteristics", 0)
 
                 # 0x20000000 = Execute (Исполнение)
@@ -34,9 +30,6 @@ class DriverAnalyzer:
                     return True
 
         except Exception:
-            # ОПТИМИЗАЦИЯ 3: Fallback (План Б)
-            # Если fast_load не смог прочитать файл (например, наши "мутанты" из полигона),
-            # пробуем полную загрузку. Это сработает для test_drivers, но не замедлит систему.
             try:
                 pe = pefile.PE(driver_path)
                 for section in pe.sections:
@@ -46,21 +39,17 @@ class DriverAnalyzer:
             except Exception:
                 return False
         finally:
-            # Обязательно закрываем дескриптор
             if pe:
                 pe.close()
 
         return False
 
     def evaluate(self, driver_path, file_hash):
-        # 1. Сигнатурный анализ (Поиск по базе) - O(1)
         match = self.db.get(file_hash)
 
         if match:
             raw_severity = match.get("severity", 5)
             v_type = match.get("type", "Unknown").lower()
-
-            # Уточнение приоритета
             priority = (
                 10 if "write" in v_type else (8 if "read" in v_type else raw_severity)
             )
@@ -77,7 +66,6 @@ class DriverAnalyzer:
                 "action": "Блокировка (WDAC/HVCI)",
             }
 
-        # 2. Проактивный анализ (Эвристика) - запускаем только если нет в базе
         if self._check_rwx_sections(driver_path):
             return {
                 "path": driver_path,
