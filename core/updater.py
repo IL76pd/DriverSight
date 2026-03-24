@@ -10,7 +10,6 @@ class DatabaseUpdater:
         self.db_path = db_path
 
     def update(self):
-        """Скачивает свежую базу и пересобирает её под наш формат."""
         print(f"[*] Connecting to {self.SOURCE_URL}...")
 
         try:

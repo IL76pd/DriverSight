@@ -6,10 +6,6 @@ class DriverAnalyzer:
         self.db = database
 
     def _check_rwx_sections(self, driver_path):
-        """
-        Эвристический поиск RWX-секций (Zero-Day).
-        Оптимизированная версия с Fast Load.
-        """
         try:
             if os.path.getsize(driver_path) > 10 * 1024 * 1024:
                 return False
