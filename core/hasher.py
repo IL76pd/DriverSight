@@ -1,6 +1,5 @@
 import hashlib
 
-
 class DriverHasher:
     @staticmethod
     def get_sha256(file_path):

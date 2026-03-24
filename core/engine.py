@@ -7,7 +7,6 @@ from core.hasher import DriverHasher
 from core.analyzer import DriverAnalyzer
 from utils.interface import print_info
 
-
 class DriverSightEngine:
     def __init__(self, db_path, target_dir=None):
         self.db_path = db_path
@@ -31,7 +30,6 @@ class DriverSightEngine:
             TextColumn("[progress.description]{task.description}"),
             transient=True,
         ) as progress:
-            # Выбор режима работы
             if self.target_dir and os.path.exists(self.target_dir):
                 progress.add_task(
                     description=f"Инвентаризация директории {self.target_dir}...",

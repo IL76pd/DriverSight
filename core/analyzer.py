@@ -1,7 +1,6 @@
 import pefile
 import os
 
-
 class DriverAnalyzer:
     def __init__(self, database):
         self.db = database
