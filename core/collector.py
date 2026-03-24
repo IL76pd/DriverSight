@@ -23,7 +23,7 @@ class DriverCollector:
                 DWORD,
             ]
             self.psapi.GetDeviceDriverFileNameA.restype = DWORD
-        except Exception as e:
+        except:
             pass
 
     def get_driver_paths(self):

@@ -55,7 +55,7 @@ class DriverSightReporter:
         rows_html = ""
 
         status_box = (
-            f"<div style='background:#1b2a1e;border:1px solid #2ea043;padding:15px;'><h3 style='color:#2ea043;margin:0;'>✅ Система в норме</h3></div>"
+            "<div style='background:#1b2a1e;border:1px solid #2ea043;padding:15px;'><h3 style='color:#2ea043;margin:0;'>✅ Система в норме</h3></div>"
             if is_clean
             else f"<div style='background:#2a1b1b;border:1px solid #ff3e3e;padding:15px;'><h3 style='color:#ff3e3e;margin:0;'>⚠ Обнаружены риски: {len(self.findings)}</h3></div>"
         )
